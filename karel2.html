@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="karel.js"></script>
+</head>
+
+<body>
+
+<div id="for-canvas"></div>
+<div id="for-commands">
+<textarea rows="20" cols="60" id='source-text'>
+BEGINNING-OF-PROGRAM
+    DEFINE-NEW-INSTRUCTION turnright AS
+    BEGIN
+        turnleft;
+        turnleft;
+        turnleft
+    END ;
+
+    BEGINNING-OF-EXECUTION
+        turnright;
+        move;
+        move;
+        putbeeper;
+        move;
+        putbeeper;
+        turnoff
+    END-OF-EXECUTION
+END-OF-PROGRAM
+</textarea>
+<input type="button" value="Run" id="run-button">
+<input type="button" value="ReRun" id="rerun-button">
+</div>
+
+<script>
+(function(){
+    var div = document.getElementById('for-canvas');
+    var canvas = document.createElement('canvas');
+    var opts = {
+        robot: {beepers: 2}
+    };
+
+    var world = Karel.createWorld(canvas, opts);
+
+    div.appendChild(canvas);
+
+    world.draw();
+
+    document.getElementById('run-button').addEventListener('click',
+        function () {
+            var src = document.getElementById('source-text').value;
+            Karel.interpret(src, world);
+            world.draw();
+        }
+    );
+
+    document.getElementById('rerun-button').addEventListener('click',
+        function () {
+            var src = document.getElementById('source-text').value;
+            world = Karel.createWorld(canvas, opts);
+            Karel.interpret(src, world);
+            world.draw();
+        }
+    );
+})();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="karel.js"></script>
+</head>
+
+<body>
+
+<div id="for-canvas"></div>
+<div id="for-commands">
+<input type="button" value="move" id="move-button"><br>
+<input type="button" value="turnleft" id="turnleft-button"><br>
+<input type="button" value="pickbeeper" id="pickbeeper-button"><br>
+<input type="button" value="putbeeper" id="putbeeper-button">
+</div>
+
+<script>
+(function(){
+    var div = document.getElementById('for-canvas');
+    var canvas = document.createElement('canvas');
+    var opts = {
+        size: {
+            streets: 10,
+            avenues: 10
+        },
+        robot: {
+            street: 1,
+            avenue: 1,
+            beepers: 0,
+            direction: Karel.NORTH,
+        },
+        beepers: [{count:20,street:5,avenue:7}],
+        walls: [{street: 2.5, avenue: 1},
+                {street: 2, avenue: 1.5},
+                {street: 1, avenue:3.5},
+                {street: 9, avenue:3.5},
+                {street: 8, avenue:3.5},
+                {street: 7, avenue:3.5},
+                {street: 6, avenue:3.5},
+                {street: 5, avenue:3.5},
+                {street: 4, avenue:3.5},
+                {street: 3, avenue:3.5},
+                {street: 2, avenue:3.5} ]
+    };
+
+    var world = Karel.createWorld(canvas, opts);
+
+    div.appendChild(canvas);
+
+    document.getElementById('move-button').addEventListener('click',
+        function () {
+            world.execute('move');
+            world.draw();
+        });
+    document.getElementById('turnleft-button').addEventListener('click',
+        function () {
+            world.execute('turnleft');
+            world.draw();
+        });
+    document.getElementById('pickbeeper-button').addEventListener('click',
+        function () {
+            world.execute('pickbeeper');
+            world.draw();
+        });
+    document.getElementById('putbeeper-button').addEventListener('click',
+        function () {
+            world.execute('putbeeper');
+            world.draw();
+        });
+
+    world.draw();
+
+    /*
+    var animate = function () {
+        world.draw();
+
+        requestAnimationFrame(animate, canvas);
+    };
+    requestAnimationFrame(animate, canvas);
+    */
+})();
+</script>
+
+</body>
+
+
+</html>

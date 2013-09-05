@@ -1,0 +1,242 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="karel.js"></script>
+</head>
+
+<body>
+
+<div id="for-canvas"></div>
+<div id="for-status"></div>
+<div id="for-commands">
+<textarea rows="36" cols="60" id='source-text'>
+BEGINNING-OF-PROGRAM
+    DEFINE-NEW-INSTRUCTION pickbeeper-if-present AS
+    BEGIN
+        IF next-to-a-beeper THEN
+            pickbeeper
+    END;
+
+    DEFINE-NEW-INSTRUCTION turnright AS
+    BEGIN
+        turnleft;
+        turnleft;
+        turnleft
+    END;
+
+    BEGINNING-OF-EXECUTION
+        pickbeeper-if-present;
+        WHILE front-is-clear DO
+        BEGIN
+            move;
+            pickbeeper-if-present
+        END;
+
+        turnright;
+        move;
+        turnright;
+
+        WHILE any-beepers-in-beeper-bag DO
+        BEGIN
+            putbeeper;
+            IF front-is-clear THEN
+                move
+        END;
+        turnoff
+
+    END-OF-EXECUTION
+END-OF-PROGRAM
+</textarea>
+<input type="button" value="ReRun" id="rerun-button">
+</div>
+
+<script>
+(function(){
+    var div = document.getElementById('for-canvas');
+    var init_canvas = document.createElement('canvas');
+    var end_canvas = document.createElement('canvas');
+    var opts = { walls: [], beepers: [] };
+
+    var init_world, end_world;
+
+    div.appendChild(init_canvas);
+    div.appendChild(document.createTextNode(' '));
+    div.appendChild(end_canvas);
+
+// http://paulirish.com/2011/requestanimationframe-for-smart-animating/
+// http://my.opera.com/emoller/blog/2011/12/20/requestanimationframe-for-smart-er-animating
+ 
+// requestAnimationFrame polyfill by Erik Möller. fixes from Paul Irish and Tino Zijdel
+ 
+// MIT license
+ 
+(function() {
+var lastTime = 0;
+var vendors = ['ms', 'moz', 'webkit', 'o'];
+for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
+window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame']
+|| window[vendors[x]+'CancelRequestAnimationFrame'];
+}
+if (!window.requestAnimationFrame)
+window.requestAnimationFrame = function(callback, element) {
+var currTime = new Date().getTime();
+var timeToCall = Math.max(0, 16 - (currTime - lastTime));
+var id = window.setTimeout(function() { callback(currTime + timeToCall); },
+timeToCall);
+lastTime = currTime + timeToCall;
+return id;
+};
+if (!window.cancelAnimationFrame)
+window.cancelAnimationFrame = function(id) {
+clearTimeout(id);
+};
+}());
+
+    // on the recommendation of HTML5: Up and Running
+
+    function getCursorPosition(el, ev) {
+        var x, y;
+        if (ev.pageX != undefined && ev.pageY != undefined) {
+            x = ev.pageX;
+            y = ev.pageY;
+        } else {
+            x = ev.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+            y = ev.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+        }
+
+        x -= el.offsetLeft;
+        y -= el.offsetTop;
+
+        return {x: x, y: y};
+    }
+
+    init_canvas.addEventListener('mouseout', function (event) {
+        init_world.preview_wall = null;
+        init_world.preview_beeper = null;
+    });
+
+    function placeStuff(event, wallCB, beeperCB) {
+        var pos = getCursorPosition(init_canvas, event);
+        pos.y = init_canvas.height - pos.y;
+        var addr = Karel.pixelsToAddress(pos);
+
+        // closest corner
+        var corner = {
+            street: Math.round(addr.street),
+            avenue: Math.round(addr.avenue)};
+        var corndx = {
+            street: Math.abs(corner.street - addr.street),
+            avenue: Math.abs(corner.avenue - addr.avenue)};
+
+        if (corndx.street < .2 && corndx.avenue > .2) {
+            // close to street, far from ave, wall across a street
+
+
+            wallCB({street: corner.street, avenue: Math.floor(addr.avenue)+0.5});
+        } else if (corndx.street > .2 && corndx.avenue < .2) {
+            // close to ave, far from street, wall across an avenue
+            wallCB({street: Math.floor(addr.street)+0.5, avenue: corner.avenue});
+        } else if (corndx.street*corndx.street + corndx.avenue*corndx.avenue < .2*.2) {
+            // beeper
+            beeperCB(corner);
+        }
+    };
+
+
+    init_canvas.addEventListener('mousemove', function (event) {
+        init_world.preview_wall = null;
+        init_world.preview_beeper = null;
+
+        placeStuff(event,
+            function (wall) {
+                init_world.preview_wall = wall;
+            },
+            function (beeper) {
+                init_world.preview_beeper = beeper;
+            }
+        );
+
+        init_world.dirty = true;
+    });
+
+    init_canvas.addEventListener('click', function (event) {
+        placeStuff(event,
+            function (wall) {
+                for (var i = 0, l = opts.walls.length; i < l; i++) {
+                    if (opts.walls[i].street == wall.street &&
+                        opts.walls[i].avenue == wall.avenue) {
+
+                        // remove existing wall
+                        opts.walls.splice(i, 1);
+                        return;
+                    }
+                }
+
+                // add new wall
+                opts.walls.push(wall);
+            },
+            function (beeper) {
+                for (var i = 0, l = opts.beepers.length; i < l; i++) {
+                    if (opts.beepers[i].street == beeper.street &&
+                        opts.beepers[i].avenue == beeper.avenue) {
+
+                        // remove existing beeper
+                        opts.beepers.splice(i, 1);
+                        return;
+                    }
+                }
+
+                // add new beeper
+                opts.beepers.push(beeper);
+            }
+        );
+
+        runworld();
+    });
+
+    function runworld() {
+        init_world = Karel.createWorld(init_canvas, opts);
+        end_world = Karel.createWorld(end_canvas, opts);
+
+        var src = document.getElementById('source-text').value;
+        var statusdiv = document.getElementById('for-status');
+        
+        statusdiv.textContent = "Running..."; // BUG: doesn't get a chance
+        try {
+            Karel.interpret(src, end_world);
+            result = "ok";
+        } catch (e) {
+            result = "error shutoff: " + e;
+        }
+
+        end_world.dirty = true;
+
+        statusdiv.textContent = result;
+    }
+
+    document.getElementById('rerun-button').addEventListener('click', runworld);
+
+    function render_init_world() {
+        if (init_world) {
+            init_world.draw();
+        }
+        requestAnimationFrame(render_init_world, init_canvas);
+    };
+    function render_end_world() {
+        if (end_world) {
+            end_world.draw();
+        }
+        requestAnimationFrame(render_end_world, end_canvas);
+    };
+
+    runworld();
+    render_init_world();
+    render_end_world();
+})();
+
+</script>
+
+</body>
+</html>
